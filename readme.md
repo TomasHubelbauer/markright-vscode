@@ -34,9 +34,17 @@ if ($null -eq (Get-Command "yo" -ErrorAction SilentlyContinue)) {
 # Print Yeoman version number for comparison with the expected output
 yo --version
 
-# Ensure `generator-code` in installed locally as a direct dependency
+# Install generator-code as a local dependency so that Yeoman sees it
+$ls = $(npm ls 2> $null) | where { $_ -match "`-- generator-code" }
+if ($ls -eq $null) {
+  # Supress output - this also supresses errors, but we'll find out later anyway
+  [void] (npm install generator-code --silent)
+  $ls = $(npm ls 2> $null) | where { $_ -match "`-- generator-code" }
+}
+
 # Print the `generator-code` package version for comparison with expected output
-(($(npm ls 2> $null) | where { $_ -match "`-- generator-code" }) -split "@")[1]
+# Split by space in case we already have the Git PR version which has extra info
+(($ls -split "@")[1] -split " ")[0]
 
 # Ensure `generator-code` is seem by Yeoman in its `yo --generators` output
 if ($(yo --generators) -notcontains '  code') {
@@ -70,8 +78,6 @@ The Code generator asks for a few questions:
 - What's the name of your extension? - `extensionDisplayName`
 - What's the identifier of your extension? - `extensionName`
 - What's the description of your extension? - `extensionDescription`
-- Initialize a Git repository?
-- Which package manager to use?
 
 Finding the names of the command line arguments corresponding to these questions
 is possible by using `yo code --help`. However, not all of the questions were
@@ -83,22 +89,44 @@ I found that it uses the methods for asking the questions from this file:
 
 https://github.com/microsoft/vscode-generator-code/blob/master/generators/app/prompts.js
 
-In here it is apparent that the Git initialization and package manager selection
-questions do not check for if the options are already provided.
+The questions not being documented in the `--help` command are:
 
-I've filed a question asking about this:
+- Initialize a Git repository? - `initGit`
+- Which package manager to use? - `pkgManager`
+- Bundle the source code with webpack? - `webpack`
 
-https://github.com/microsoft/vscode-generator-code/issues/226
-
-And after noticing this (the missing check to see if the answers were given), I
-have also filed a PR which fixes that:
+Not only are the command line options for these questions not documented, they
+are not even supported. The support for providing them through the CLI is
+missing. I've submitted a PR to `microsoft/vscode-generator-code` to fix this:
 
 https://github.com/microsoft/vscode-generator-code/pull/227
 
-Until that PR is fixed, we cannot scaffold the extension. But we can prepare the
-command line that should work once the PR is merged:
+Until that PR is merged, we cannot scaffold the extension using the official
+generator, but we can replace it with out fork's `patch-1` branch which was
+created when I created the PR using the GitHub UI and has the updated code:
 
+```sh
+# Supress output - this also supresses errors, but we'll find out later anyway
+[void] (npm install tomashubelbauer/vscode-generator-code#patch-1 --silent)
+$(npm ls 2> $null) | where { $_ -match "`-- generator-code" }
 ```
+
+This will replace the `microsoft/vscode-genrator-code` NPM package with
+`tomashubelbauer/vscode-generator-code` Git repository package as it is in the
+`patch-1` branch.
+
+Let's verify that:
+
+```stdout
+`-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050aa99e9af8e1b776b83df61966777f316)
+```
+
+One last detail to take care of is to prevent Yeoman from installing NPM
+dependencies for us after scaffolding the extension code base. We'll do that
+outselves to make that step explicit. To do this, we lean on `yo code --help`
+again and use the `--skip-instal` command line argument.
+
+```sh
 yo code `
   --extensionType command-ts `
   --extensionDisplayName MarkRight `
@@ -106,5 +134,73 @@ yo code `
   --extensionDescription "MarkRight support for VS Code" `
   --gitInit false `
   --pkgManager npm `
+  --webpack false `
+  --skip-install `
 
 ```
+
+Unfortunately it looks like even though the generator now accepts the command
+line arguments for the remaining questions, it does not honor the values as
+`.git` is still being created in the `vscode-markright` directory and it looks
+like the WebPack build is being set up, too.
+
+We won't worry about that too much for now, we'll just wipe the `.git` from
+`vscode-markright` and live with the fact we've using WebPack for bundle. At
+least NPM is the default package manager so one of the three choices is the way
+we wanted it.
+
+```sh
+Remove-Item -LiteralPath "vscode-markright/.git" -Force -Recurse
+ls vscode-markright -n
+```
+
+The expected listing of `vscode-markright` now is:
+
+```stdout
+.vscode
+build
+src
+.eslintrc.json
+.gitignore
+.vscodeignore
+CHANGELOG.md
+package.json
+README.md
+tsconfig.json
+vsc-extension-quickstart.md
+```
+
+Let's also delete `node_modules` we have `generator-code` installed in and the
+`package-lock.json` file created as a result of the `npm install` commands that
+have been issued (if any have).
+
+```sh
+Remove-Item -LiteralPath "node_modules" -Force -Recurse
+if (Test-Path "package-lock.json") {
+  Remove-Item "package-lock.json"
+}
+
+ls -n
+```
+
+Now the reposotory directory is now and clean:
+
+```stdout
+vscode-markright
+.gitignore
+readme.md
+```
+
+We've cleared out the root directory of our repository because that's where we
+are going to hoist the generated files from `vscode-markright` scaffolded by
+`generator-code`. To make that go smoothly, we'll rename the generated
+`README.md` to avoid conflict and then copy:
+
+```sh
+mv vscode-markright/README.md vscode-markright/README-code.md
+Get-ChildItem -Path vscode-markright | Move-Item -Force -Destination .
+rm vscode-markright
+```
+
+This move has replaced our `.gitignore`, but that's fine, we want the template
+one.
