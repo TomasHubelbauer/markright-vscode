@@ -204,3 +204,15 @@ rm vscode-markright
 
 This move has replaced our `.gitignore`, but that's fine, we want the template
 one.
+
+## To-Do
+
+### Use `npm list --global yo` to check Yeoman installation and version
+
+### Use `npm list generator-code` to check `generator-code` local installation
+
+### Consider using `generator-code` non-fork version and feeding its stdin
+
+Looks like this is ugly to do in PowerShell though so maybe not:
+
+https://stackoverflow.com/q/16098366/2715716
