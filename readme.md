@@ -3,9 +3,31 @@
 This repository hosts the source code for the MarkRight VS Code extension. It is
 written using MarkRight itself, so it also serves as a test bench for MarkRight.
 
+If you do not know what MarkRight is, check out its main repository at
+https://github.com/tomashubelbauer/markright.
+
 To run MarkRight on this document, run `npx tomashubelbauer/markright watch`.
 This will fetch the latest development version of MarkRight and start it in
 watch mode, so any changes to `readme.md` will be reflected by MarkRight.
+
+You can also just install MarkRight globally using NPM by running this command:
+`npm install --global tomashubelbauer/markright` and use it using `markright` or
+`markright watch` in this directory.
+
+While prototyping, I'll start off by ensuring the directory is completely empty
+except for the MarkRight entry document (this `readme.md`). Later on once the
+code is more complete, we'll have more code blocks which reuse stuff if it exist
+and optimize the runtime that way. But for now it is more beneficial to know we
+always start off from the same spot.
+
+```sh
+# Preserve node_modules and .vscode-test because they are ignored so that their
+# content doesn't matter and keeping them around preserves installations of some
+# dependencies so it also speeds up the duration of MarkRight processing
+
+# Do not use `Remove-Item -Exclude` as it does not work properly after PS 3.0+
+Get-ChildItem -Exclude readme.md,node_modules,.vscode-test | Remove-Item -Recurse
+```
 
 I'll be following the official *Your First Extension* guide on the VS Code site.
 https://code.visualstudio.com/api/get-started/your-first-extension
@@ -180,7 +202,9 @@ if (Test-Path "package-lock.json") {
   Remove-Item "package-lock.json"
 }
 
-ls -n
+# Exclude the directories we keep around if they exists for caching purposes
+# (They do not exist on the first run but do on subsequent runs)
+Get-ChildItem -Name -Exclude node_modules,.vscode-test
 ```
 
 Now the reposotory directory is now and clean:
@@ -205,6 +229,30 @@ rm vscode-markright
 This move has replaced our `.gitignore`, but that's fine, we want the template
 one.
 
+With the extension template scaffolded, let's install the NPM dependencies so
+that we get code completion and are able to build:
+
+```sh
+npm install
+```
+
+Opening `src/extension.ts` we can see the IDE now provides useful Intellisense.
+
+We can also run tests:
+
+```sh
+npm test
+```
+
+Unfortunately running tests is not supported while VS Code is running.
+
+For some reason, the VS Code extension template `.gitignore` does not include an
+entry for `.vscode-test`. Let's fix that, too:
+
+```gitignore .gitignore!
+.vscode-test
+```
+
 ## To-Do
 
 ### Use `npm list --global yo` to check Yeoman installation and version
@@ -216,3 +264,19 @@ one.
 Looks like this is ugly to do in PowerShell though so maybe not:
 
 https://stackoverflow.com/q/16098366/2715716
+
+### Add CodeLens lines for each MarkRight code block with actions and notes
+
+For shell scripts it would have a Run action so they can be developed in
+isolation.
+
+For other code blocks, it would describe what it does, like: *Create test.txt*
+(this would resolve `_` to the last file name), *Update test.txt* (it would know
+based on the contents of the directory) etc.
+
+### Fix `generator-code` not being installed top-level all of the sudden
+
+```
+Actual:   "+-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050a"… (1 lines, 113 chars)
+Expected: "`-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050a"… (1 lines, 113 chars)
+```
