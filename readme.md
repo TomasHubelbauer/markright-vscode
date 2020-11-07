@@ -249,8 +249,8 @@ Unfortunately running tests is not supported while VS Code is running.
 For some reason, the VS Code extension template `.gitignore` does not include an
 entry for `.vscode-test`. Let's fix that, too:
 
-```gitignore .gitignore!
-.vscode-test
+```patch .gitignore
++.vscode-test
 ```
 
 ## To-Do
