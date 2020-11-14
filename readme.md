@@ -81,7 +81,7 @@ numbers of both Yeoman and the `generator-code` package.
 
 ```stdout
 3.1.1
-1.3.5
+1.3.7
 ```
 
 MarkRight will throw here if the versions documented don't match the reality so
@@ -100,53 +100,17 @@ The Code generator asks for a few questions:
 - What's the name of your extension? - `extensionDisplayName`
 - What's the identifier of your extension? - `extensionName`
 - What's the description of your extension? - `extensionDescription`
-
-Finding the names of the command line arguments corresponding to these questions
-is possible by using `yo code --help`. However, not all of the questions were
-covered there. By inspecting the source code of the generator:
-
-https://github.com/microsoft/vscode-generator-code/blob/master/generators/app/generate-command-ts%20.js
-
-I found that it uses the methods for asking the questions from this file:
-
-https://github.com/microsoft/vscode-generator-code/blob/master/generators/app/prompts.js
-
-The questions not being documented in the `--help` command are:
-
-- Initialize a Git repository? - `initGit`
+- Initialize a Git repository? - `gitInit`
 - Which package manager to use? - `pkgManager`
 - Bundle the source code with webpack? - `webpack`
 
-Not only are the command line options for these questions not documented, they
-are not even supported. The support for providing them through the CLI is
-missing. I've submitted a PR to `microsoft/vscode-generator-code` to fix this:
-
-https://github.com/microsoft/vscode-generator-code/pull/227
-
-Until that PR is merged, we cannot scaffold the extension using the official
-generator, but we can replace it with out fork's `patch-1` branch which was
-created when I created the PR using the GitHub UI and has the updated code:
-
-```sh
-# Supress output - this also supresses errors, but we'll find out later anyway
-[void] (npm install tomashubelbauer/vscode-generator-code#patch-1 --silent)
-$(npm ls 2> $null) | where { $_ -match "`-- generator-code" }
-```
-
-This will replace the `microsoft/vscode-genrator-code` NPM package with
-`tomashubelbauer/vscode-generator-code` Git repository package as it is in the
-`patch-1` branch.
-
-Let's verify that:
-
-```stdout
-`-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050aa99e9af8e1b776b83df61966777f316)
-```
+Finding the names of the command line arguments corresponding to these questions
+is possible by using `yo code --help`.
 
 One last detail to take care of is to prevent Yeoman from installing NPM
 dependencies for us after scaffolding the extension code base. We'll do that
 outselves to make that step explicit. To do this, we lean on `yo code --help`
-again and use the `--skip-instal` command line argument.
+again and use the `--skip-install` command line argument.
 
 ```sh
 yo code `
@@ -161,15 +125,13 @@ yo code `
 
 ```
 
-Unfortunately it looks like even though the generator now accepts the command
-line arguments for the remaining questions, it does not honor the values as
-`.git` is still being created in the `vscode-markright` directory and it looks
-like the WebPack build is being set up, too.
+Unfortunately it looks like even though the generator accepts the command line
+argument for `gitInit`, `.git` is still being created in the `vscode-markright`
+directory and it looks like the WebPack build is being set up, too, despite the
+`webpack` CLI argument.
 
 We won't worry about that too much for now, we'll just wipe the `.git` from
-`vscode-markright` and live with the fact we've using WebPack for bundle. At
-least NPM is the default package manager so one of the three choices is the way
-we wanted it.
+`vscode-markright` and live with the fact we've using WebPack for bundle.
 
 ```sh
 Remove-Item -LiteralPath "vscode-markright/.git" -Force -Recurse
@@ -259,11 +221,9 @@ entry for `.vscode-test`. Let's fix that, too:
 
 ### Use `npm list generator-code` to check `generator-code` local installation
 
-### Consider using `generator-code` non-fork version and feeding its stdin
+### Consider feeding `generator-code` stdin instead of the CLI arguments
 
-Looks like this is ugly to do in PowerShell though so maybe not:
-
-https://stackoverflow.com/q/16098366/2715716
+https://github.com/TomasHubelbauer/node-stdio
 
 ### Add CodeLens lines for each MarkRight code block with actions and notes
 
@@ -273,10 +233,3 @@ isolation.
 For other code blocks, it would describe what it does, like: *Create test.txt*
 (this would resolve `_` to the last file name), *Update test.txt* (it would know
 based on the contents of the directory) etc.
-
-### Fix `generator-code` not being installed top-level all of the sudden
-
-```
-Actual:   "+-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050a"… (1 lines, 113 chars)
-Expected: "`-- generator-code@1.3.5 (github:tomashubelbauer/vscode-generator-code#a962e050a"… (1 lines, 113 chars)
-```
