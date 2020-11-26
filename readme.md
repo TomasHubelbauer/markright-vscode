@@ -233,3 +233,5 @@ isolation.
 For other code blocks, it would describe what it does, like: *Create test.txt*
 (this would resolve `_` to the last file name), *Update test.txt* (it would know
 based on the contents of the directory) etc.
+
+### Switch to `vscode-barebones-extension` once it supports `npm test`
